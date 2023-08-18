@@ -17,6 +17,7 @@ import (
 	"github.com/hafizewp22/gotoko/app/database/seeders"
 	"github.com/hafizewp22/gotoko/app/models"
 	"github.com/urfave/cli"
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -75,6 +76,7 @@ type Result struct {
 var store = sessions.NewCookieStore([]byte(os.Getenv("SESSION_KEY")))
 var sessionShoppingCart = "shopping-cart-session"
 var sessionFlash = "flash-session"
+var sessionUser = "user-session"
 
 func (server *Server) Initialize(appConfig AppConfig, dbConfig DBConfig) {
 	fmt.Println("Welcome to " + appConfig.AppName)
@@ -305,4 +307,35 @@ func GetFlash(w http.ResponseWriter, r *http.Request, name string) []string {
 	}
 
 	return flashes
+}
+
+func IsLoggedIn(r *http.Request) bool {
+	session, _ := store.Get(r, sessionUser)
+	if session.Values["id"] == nil {
+		return false
+	}
+
+	return true
+}
+
+func ComparePassword(password string, hashedPassword string) bool {
+	return bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(password)) == nil
+}
+
+func (server *Server) CurrentUser(w http.ResponseWriter, r *http.Request) *models.User {
+	if !IsLoggedIn(r) {
+		return nil
+	}
+
+	session, _ := store.Get(r, sessionUser)
+
+	userModel := models.User{}
+	user, err := userModel.FindByID(server.DB, session.Values["id"].(string))
+	if err != nil {
+		session.Values["id"] = nil
+		session.Save(r, w)
+		return nil
+	}
+
+	return user
 }
