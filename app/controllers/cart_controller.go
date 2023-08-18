@@ -78,6 +78,8 @@ func (server *Server) GetCart(w http.ResponseWriter, r *http.Request) {
 		"cart":      cart,
 		"items":     items,
 		"provinces": provinces,
+		"success":   GetFlash(w, r, "success"),
+		"error":     GetFlash(w, r, "error"),
 	})
 }
 
@@ -89,10 +91,13 @@ func (server *Server) AddItemToCart(w http.ResponseWriter, r *http.Request) {
 	product, err := productModel.FindByID(server.DB, productID)
 	if err != nil {
 		http.Redirect(w, r, "/products/"+product.Slug, http.StatusSeeOther)
+		return
 	}
 
 	if qty > product.Stock {
+		SetFlash(w, r, "error", "Stok tidak mencukupi")
 		http.Redirect(w, r, "/products/"+product.Slug, http.StatusSeeOther)
+		return
 	}
 
 	var cart *models.Cart
@@ -103,11 +108,11 @@ func (server *Server) AddItemToCart(w http.ResponseWriter, r *http.Request) {
 		ProductID: productID,
 		Qty:       qty,
 	})
-
 	if err != nil {
 		http.Redirect(w, r, "/products/"+product.Slug, http.StatusSeeOther)
 	}
 
+	SetFlash(w, r, "success", "Item berhasil ditambahkan")
 	http.Redirect(w, r, "/carts", http.StatusSeeOther)
 }
 

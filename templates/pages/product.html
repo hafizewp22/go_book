@@ -49,6 +49,20 @@
                     <div class="product-price">
                         <span class="price">IDR {{ .product.Price }}</span>
                     </div>
+                    {{ if .success}}
+                    <div class="alert alert-success">
+                        {{ range $i, $msg := .success }}
+                        {{ $msg }}<br />
+                        {{ end }}
+                    </div>
+                    {{ end }}
+                    {{ if .error}}
+                    <div class="alert alert-danger">
+                        {{ range $i, $msg := .error }}
+                        {{ $msg }}<br />
+                        {{ end }}
+                    </div>
+                    {{ end }}
                     <div class="product-short-desc">
                         <p>{{ .product.ShortDescription }}</p>
                     </div>

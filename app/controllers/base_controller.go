@@ -32,7 +32,7 @@ type AppConfig struct {
 	AppName string
 	AppEnv  string
 	AppPort string
-	AppUrl  string
+	AppURL  string
 }
 
 type DBConfig struct {
@@ -59,6 +59,13 @@ type PaginationLinks struct {
 	Links       []PageLink
 }
 
+type PaginationParams struct {
+	Path        string
+	TotalRows   int32
+	PerPage     int32
+	CurrentPage int32
+}
+
 type Result struct {
 	Code    int         `json:"code"`
 	Data    interface{} `json:"data"`
@@ -67,13 +74,7 @@ type Result struct {
 
 var store = sessions.NewCookieStore([]byte(os.Getenv("SESSION_KEY")))
 var sessionShoppingCart = "shopping-cart-session"
-
-type PaginationParams struct {
-	Path        string
-	TotalRows   int32
-	PerPage     int32
-	CurrentPage int32
-}
+var sessionFlash = "flash-session"
 
 func (server *Server) Initialize(appConfig AppConfig, dbConfig DBConfig) {
 	fmt.Println("Welcome to " + appConfig.AppName)
@@ -158,7 +159,7 @@ func GetPaginationLinks(config *AppConfig, params PaginationParams) (PaginationL
 	for i := 1; int32(i) <= totalPages; i++ {
 		links = append(links, PageLink{
 			Page:          int32(i),
-			Url:           fmt.Sprintf("%s/%s?page=%s", config.AppUrl, params.Path, fmt.Sprint(i)),
+			Url:           fmt.Sprintf("%s/%s?page=%s", config.AppURL, params.Path, fmt.Sprint(i)),
 			IsCurrentPage: int32(i) == params.CurrentPage,
 		})
 	}
@@ -178,9 +179,9 @@ func GetPaginationLinks(config *AppConfig, params PaginationParams) (PaginationL
 	}
 
 	return PaginationLinks{
-		CurrentPage: fmt.Sprintf("%s/%s?page=%s", config.AppUrl, params.Path, fmt.Sprint(params.CurrentPage)),
-		NextPage:    fmt.Sprintf("%s/%s?page=%s", config.AppUrl, params.Path, fmt.Sprint(nextPage)),
-		PrevPage:    fmt.Sprintf("%s/%s?page=%s", config.AppUrl, params.Path, fmt.Sprint(prevPage)),
+		CurrentPage: fmt.Sprintf("%s/%s?page=%s", config.AppURL, params.Path, fmt.Sprint(params.CurrentPage)),
+		NextPage:    fmt.Sprintf("%s/%s?page=%s", config.AppURL, params.Path, fmt.Sprint(nextPage)),
+		PrevPage:    fmt.Sprintf("%s/%s?page=%s", config.AppURL, params.Path, fmt.Sprint(prevPage)),
 		TotalRows:   params.TotalRows,
 		TotalPages:  totalPages,
 		Links:       links,
@@ -206,6 +207,7 @@ func (server *Server) GetProvinces() ([]models.Province, error) {
 	}
 
 	return provinceResponse.ProvinceData.Results, nil
+
 }
 
 func (server *Server) GetCitiesByProvinceID(provinceID string) ([]models.City, error) {
@@ -271,4 +273,36 @@ func (server *Server) CalculateShippingFee(shippingParams models.ShippingFeePara
 	}
 
 	return shippingFeeOptions, nil
+}
+
+func SetFlash(w http.ResponseWriter, r *http.Request, name string, value string) {
+	session, err := store.Get(r, sessionFlash)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	session.AddFlash(value, name)
+	session.Save(r, w)
+}
+
+func GetFlash(w http.ResponseWriter, r *http.Request, name string) []string {
+	session, err := store.Get(r, sessionFlash)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return nil
+	}
+
+	fm := session.Flashes(name)
+	if len(fm) < 0 {
+		return nil
+	}
+
+	session.Save(r, w)
+	var flashes []string
+	for _, fl := range fm {
+		flashes = append(flashes, fl.(string))
+	}
+
+	return flashes
 }
